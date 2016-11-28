@@ -1,0 +1,5 @@
+ruby-secure-headers (3.5.0-1) UNRELEASED; urgency=medium
+
+  * Initial release (Closes: #846039)
+
+ -- Abhijith PA <abhijith@openmailbox.org>  Mon, 28 Nov 2016 07:33:30 +0530
