@@ -5,7 +5,8 @@ Maintainer: Debian Ruby Extras Maintainers <pkg-ruby-extras-maintainers@lists.al
 Uploaders: Abhijith PA <abhijith@openmailbox.org>
 Build-Depends: debhelper (>= 9~), 
                gem2deb, 
-               ruby-rspec, 
+               ruby-rspec,
+               ruby-useragent, 
                rake
 Standards-Version: 3.9.8
 Vcs-Git: https://anonscm.debian.org/git/pkg-ruby-extras/ruby-secure-headers.git
@@ -19,8 +20,8 @@ Architecture: all
 XB-Ruby-Versions: ${ruby:Versions}
 Depends: ${shlibs:Depends}, 
          ${misc:Depends}, 
-         ruby | ruby-interpreter
-         rake 
+         ruby | ruby-interpreter,
+         ruby-useragent 
 Description: Security related headers all in one gem
  Add easily configured security headers to responses including 
  content-security-policy, x-frame-options, strict-transport-security, etc.

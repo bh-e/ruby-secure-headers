@@ -1,0 +1,18 @@
+Description: disable the use of pry-nav in test.
+pry-nav is not packaged in debian yet. It is a primitive debugger. 
+Author: Abhijith PA <abhijith@openmailbox.org>
+Forwarded: not-needed
+Last-Update: 2017-06-02
+
+
+--- a/spec/spec_helper.rb
++++ b/spec/spec_helper.rb
+@@ -1,7 +1,7 @@
+ require 'rubygems'
+ require 'rspec'
+ require 'rack'
+-require 'pry-nav'
++# require 'pry-nav'
+ 
+ require 'coveralls'
+ Coveralls.wear!
