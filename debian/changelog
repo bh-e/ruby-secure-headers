@@ -1,4 +1,4 @@
-ruby-secure-headers (3.5.0-1) UNRELEASED; urgency=medium
+ruby-secure-headers (3.5.0-1) unstable; urgency=medium
 
   * Initial release (Closes: #846039)
 

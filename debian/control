@@ -23,7 +23,6 @@ Depends: ${shlibs:Depends},
          ruby | ruby-interpreter,
          ruby-useragent 
 Description: Security related headers all in one gem
- Add easily configured security headers to responses including 
+ Add easily configured security headers to responses including
  Content-Security-Policy(CSP) which helps detect/prevent XSS and mixed-contents
  x-frame-options, strict-transport-security, etc.
- 
