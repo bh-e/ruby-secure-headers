@@ -4,14 +4,14 @@ Source: https://github.com/twitter/secureheaders
 
 Files: *
 Copyright: 2016 Neil Matatall <neil.matatall@gmail.com>
-License: Apache 2.0
+License: Apache-2.0
 
 Files: debian/*
 Copyright: 2016 Abhijith PA <abhijith@openmailbox.org>
-License: Apache 2.0
+License: Apache-2.0
 Comment: the Debian packaging is licensed under the same terms as the original package.
 
-License: Apache 2.0
+License: Apache-2.0
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
