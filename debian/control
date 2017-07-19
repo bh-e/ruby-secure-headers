@@ -8,7 +8,8 @@ Build-Depends: debhelper (>= 9~),
                ruby-rspec,
                ruby-useragent, 
                rake,
-               ruby-rack
+               ruby-rack,
+               ruby-coveralls
 Standards-Version: 4.0.0
 Vcs-Git: https://anonscm.debian.org/git/pkg-ruby-extras/ruby-secure-headers.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-ruby-extras/ruby-secure-headers
