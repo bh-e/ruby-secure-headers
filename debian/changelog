@@ -6,4 +6,4 @@ ruby-secure-headers (3.5.0-1) unstable; urgency=medium
    + 02-remove-pry-nav.patch
    + 03-fix-library-path.patch
 
- -- Abhijith PA <abhijith@openmailbox.org>  Wed, 01 Aug 2017 10:12:30 +0530
+ -- Abhijith PA <abhijith@openmailbox.org>  Wed, 02 Aug 2017 10:12:30 +0530
