@@ -1,0 +1,19 @@
+Description: Fix Library Path
+ Fix the path for secure_headers in spec_helper.rb
+Author: Abhijith PA <abhijith@openmailbox.org>
+Forwarded: not-needed
+Last-Update: 2017-08-02
+
+Index: ruby-secure-headers/spec/spec_helper.rb
+===================================================================
+--- ruby-secure-headers.orig/spec/spec_helper.rb
++++ ruby-secure-headers/spec/spec_helper.rb
+@@ -7,7 +7,7 @@ require 'coveralls'
+ Coveralls.wear!
+ require 'securerandom'
+ 
+-require File.join(File.dirname(__FILE__), '..', 'lib', 'secure_headers')
++require 'secure_headers'
+ 
+ 
+ 
