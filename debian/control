@@ -3,7 +3,7 @@ Section: ruby
 Priority: optional
 Maintainer: Debian Ruby Extras Maintainers <pkg-ruby-extras-maintainers@lists.alioth.debian.org>
 Uploaders: Abhijith PA <abhijith@openmailbox.org>
-Build-Depends: debhelper (>= 9~), 
+Build-Depends: debhelper (>= 10), 
                gem2deb, 
                ruby-rspec,
                ruby-useragent, 
