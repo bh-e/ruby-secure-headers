@@ -5,8 +5,10 @@ Forwarded: not-needed
 Last-Update: 2017-06-02
 
 
---- a/spec/spec_helper.rb
-+++ b/spec/spec_helper.rb
+Index: ruby-secure-headers/spec/spec_helper.rb
+===================================================================
+--- ruby-secure-headers.orig/spec/spec_helper.rb
++++ ruby-secure-headers/spec/spec_helper.rb
 @@ -1,7 +1,7 @@
  require 'rubygems'
  require 'rspec'
