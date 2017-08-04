@@ -3,7 +3,9 @@ Upstream-Name: secure_headers
 Source: https://github.com/twitter/secureheaders
 
 Files: *
-Copyright: 2013-2014 Twitter
+Copyright: 2011 Julio Capote 
+           2011 Christopher Burnett
+           2013-2014 Twitter
            2016 Neil Matatall <neil.matatall@gmail.com>
 License: Apache-2.0
 
