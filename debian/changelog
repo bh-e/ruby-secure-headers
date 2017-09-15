@@ -1,9 +1,9 @@
-ruby-secure-headers (3.7.1-1) UNRELEASED; urgency=medium
+ruby-secure-headers (3.7.1-1) unstable; urgency=medium
 
   * Team upload
   * New upstream release
 
- -- Sruthi Chandran <srud@disroot.org>  Fri, 15 Sep 2017 20:50:58 +0530
+ -- Sruthi Chandran <srud@disroot.org>  Fri, 15 Sep 2017 21:02:08 +0530
 
 ruby-secure-headers (3.5.0-1) unstable; urgency=medium
 
