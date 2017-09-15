@@ -1,3 +1,49 @@
+## 3.7.1
+
+Fix support for the sandbox attribute of CSP. `true` and `[]` represent the maximally restricted policy (`sandbox;`) and validate other values.
+
+## 3.7.0
+
+Adds support for the `Expect-CT` header (@jacobbednarz: https://github.com/twitter/secureheaders/pull/322)
+
+## 3.6.7
+
+Actually set manifest-src when configured. https://github.com/twitter/secureheaders/pull/339 Thanks @carlosantoniodasilva!
+
+## 3.6.6
+
+wat?
+
+## 3.6.5
+
+Update clear-site-data header to use current format specified by the specification.
+
+## 3.6.4
+
+Fix case where mixing frame-src/child-src dynamically would behave in unexpected ways: https://github.com/twitter/secureheaders/pull/325
+
+## 3.6.3
+
+Remove deprecation warning when setting `frame-src`. It is no longer deprecated.
+
+## 3.6.2
+
+Now that Safari 10 supports nonces and it appears to work, enable the nonce feature for safari.
+
+## 3.6.1
+
+Improved memory use via minor improvements clever hacks that are sadly needed.
+Thanks @carlosantoniodasilva!
+
+## 3.6.0
+
+Add support for the clear-site-data header
+
+## 3.5.1
+
+* Fix bug that can occur when useragent library version is older, resulting in a nil version sometimes.
+* Add constant for `strict-dynamic`
+
 ## 3.5.0
 
 This release adds support for setting two CSP headers (enforced/report-only) and management around them.
@@ -170,7 +216,7 @@ You can add hash sources directly to your policy :
  rake secure_headers:generate_hashes
  ```
 
- This will generate a file (`config/config/secure_headers_generated_hashes.yml` by default, you can override by setting `ENV["secure_headers_generated_hashes_file"]`) containing a mapping of file names with the array of hash values found on that page. When ActionView renders a given file, we check if there are any known hashes for that given file. If so, they are added as values to the header.
+ This will generate a file (`config/secure_headers_generated_hashes.yml` by default, you can override by setting `ENV["secure_headers_generated_hashes_file"]`) containing a mapping of file names with the array of hash values found on that page. When ActionView renders a given file, we check if there are any known hashes for that given file. If so, they are added as values to the header.
 
 ```yaml
 ---

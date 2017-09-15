@@ -10,6 +10,8 @@ require "secure_headers/headers/x_content_type_options"
 require "secure_headers/headers/x_download_options"
 require "secure_headers/headers/x_permitted_cross_domain_policies"
 require "secure_headers/headers/referrer_policy"
+require "secure_headers/headers/clear_site_data"
+require "secure_headers/headers/expect_certificate_transparency"
 require "secure_headers/middleware"
 require "secure_headers/railtie"
 require "secure_headers/view_helper"
@@ -50,6 +52,8 @@ module SecureHeaders
   CSP = ContentSecurityPolicy
 
   ALL_HEADER_CLASSES = [
+    ExpectCertificateTransparency,
+    ClearSiteData,
     ContentSecurityPolicyConfig,
     ContentSecurityPolicyReportOnlyConfig,
     StrictTransportSecurity,
@@ -161,7 +165,8 @@ module SecureHeaders
     # returned is meant to be merged into the header value from `@app.call(env)`
     # in Rack middleware.
     def header_hash_for(request)
-      config = config_for(request, prevent_dup = true)
+      prevent_dup = true
+      config = config_for(request, prevent_dup)
       headers = config.cached_headers
       user_agent = UserAgent.parse(request.user_agent)
 
@@ -175,7 +180,7 @@ module SecureHeaders
 
       header_classes_for(request).each_with_object({}) do |klass, hash|
         if header = headers[klass::CONFIG_KEY]
-          header_name, value = if [ContentSecurityPolicyConfig, ContentSecurityPolicyReportOnlyConfig].include?(klass)
+          header_name, value = if klass == ContentSecurityPolicyConfig || klass == ContentSecurityPolicyReportOnlyConfig
             csp_header_for_ua(header, user_agent)
           else
             header

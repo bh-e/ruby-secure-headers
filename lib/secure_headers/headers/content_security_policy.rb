@@ -9,6 +9,7 @@ module SecureHeaders
     # constants to be used for version-specific UA sniffing
     VERSION_46 = ::UserAgent::Version.new("46")
     VERSION_10 = ::UserAgent::Version.new("10")
+    FALLBACK_VERSION = ::UserAgent::Version.new("0")
 
     def initialize(config = nil, user_agent = OTHER)
       @config = if config.is_a?(Hash)
@@ -58,8 +59,6 @@ module SecureHeaders
     def normalize_child_frame_src
       if @config.frame_src && @config.child_src && @config.frame_src != @config.child_src
         Kernel.warn("#{Kernel.caller.first}: [DEPRECATION] both :child_src and :frame_src supplied and do not match. This can lead to inconsistent behavior across browsers.")
-      elsif @config.frame_src
-        Kernel.warn("#{Kernel.caller.first}: [DEPRECATION] :frame_src is deprecated, use :child_src instead. Provided: #{@config.frame_src}.")
       end
 
       if supported_directives.include?(:child_src)
@@ -81,12 +80,47 @@ module SecureHeaders
         case DIRECTIVE_VALUE_TYPES[directive_name]
         when :boolean
           symbol_to_hyphen_case(directive_name) if @config.directive_value(directive_name)
-        when :string
-          [symbol_to_hyphen_case(directive_name), @config.directive_value(directive_name)].join(" ")
-        else
-          build_directive(directive_name)
+        when :sandbox_list
+          build_sandbox_list_directive(directive_name)
+        when :media_type_list
+          build_media_type_list_directive(directive_name)
+        when :source_list
+          build_source_list_directive(directive_name)
         end
       end.compact.join("; ")
+    end
+
+    def build_sandbox_list_directive(directive)
+      return unless sandbox_list = @config.directive_value(directive)
+      max_strict_policy = case sandbox_list
+      when Array
+        sandbox_list.empty?
+      when true
+        true
+      else
+        false
+      end
+
+      # A maximally strict sandbox policy is just the `sandbox` directive,
+      # whith no configuraiton values.
+      if max_strict_policy
+        symbol_to_hyphen_case(directive)
+      elsif sandbox_list && sandbox_list.any?
+        [
+          symbol_to_hyphen_case(directive),
+          sandbox_list.uniq
+        ].join(" ")
+      end
+    end
+
+    def build_media_type_list_directive(directive)
+      return unless media_type_list = @config.directive_value(directive)
+      if media_type_list && media_type_list.any?
+        [
+          symbol_to_hyphen_case(directive),
+          media_type_list.uniq
+        ].join(" ")
+      end
     end
 
     # Private: builds a string that represents one directive in a minified form.
@@ -94,7 +128,7 @@ module SecureHeaders
     # directive_name - a symbol representing the various ALL_DIRECTIVES
     #
     # Returns a string representing a directive.
-    def build_directive(directive)
+    def build_source_list_directive(directive)
       source_list = case directive
       when :child_src
         if supported_directives.include?(:child_src)
@@ -213,8 +247,10 @@ module SecureHeaders
     # Returns an array of symbols representing the directives.
     def supported_directives
       @supported_directives ||= if VARIATIONS[@parsed_ua.browser]
-        if @parsed_ua.browser == "Firefox" && @parsed_ua.version >= VERSION_46
+        if @parsed_ua.browser == "Firefox" && ((@parsed_ua.version || FALLBACK_VERSION) >= VERSION_46)
           VARIATIONS["FirefoxTransitional"]
+        elsif @parsed_ua.browser == "Safari" && ((@parsed_ua.version || FALLBACK_VERSION) >= VERSION_10)
+          VARIATIONS["SafariTransitional"]
         else
           VARIATIONS[@parsed_ua.browser]
         end
