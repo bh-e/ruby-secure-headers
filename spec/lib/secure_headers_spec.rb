@@ -105,7 +105,7 @@ module SecureHeaders
       end
 
       it "produces a UA-specific CSP when overriding (and busting the cache)" do
-        config = Configuration.default do |config|
+        Configuration.default do |config|
           config.csp = {
             default_src: %w('self'),
             child_src: %w('self')
@@ -173,6 +173,33 @@ module SecureHeaders
           expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to eq("default-src 'self'; script-src mycdn.com 'unsafe-inline' anothercdn.com")
         end
 
+        it "appends child-src to frame-src" do
+          Configuration.default do |config|
+            config.csp = {
+              default_src: %w('self'),
+              frame_src: %w(frame_src.com)
+            }
+          end
+
+          SecureHeaders.append_content_security_policy_directives(chrome_request, child_src: %w(child_src.com))
+          hash = SecureHeaders.header_hash_for(chrome_request)
+          expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to eq("default-src 'self'; child-src frame_src.com child_src.com")
+        end
+
+        it "appends frame-src to child-src" do
+          Configuration.default do |config|
+            config.csp = {
+              default_src: %w('self'),
+              child_src: %w(child_src.com)
+            }
+          end
+
+          safari_request = Rack::Request.new(request.env.merge("HTTP_USER_AGENT" => USER_AGENTS[:safari6]))
+          SecureHeaders.append_content_security_policy_directives(safari_request, frame_src: %w(frame_src.com))
+          hash = SecureHeaders.header_hash_for(safari_request)
+          expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to eq("default-src 'self'; frame-src child_src.com frame_src.com")
+        end
+
         it "supports named appends" do
           Configuration.default do |config|
             config.csp = {
@@ -204,7 +231,7 @@ module SecureHeaders
 
           SecureHeaders.content_security_policy_script_nonce(request) # should add the value to the header
           hash = SecureHeaders.header_hash_for(chrome_request)
-          expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to match /\Adefault-src 'self'; script-src 'self' 'nonce-.*'\z/
+          expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to match(/\Adefault-src 'self'; script-src 'self' 'nonce-.*'\z/)
         end
 
         it "appends a hash to a missing script-src value" do
@@ -216,7 +243,7 @@ module SecureHeaders
 
           SecureHeaders.append_content_security_policy_directives(request, script_src: %w('sha256-abc123'))
           hash = SecureHeaders.header_hash_for(chrome_request)
-          expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to match /\Adefault-src 'self'; script-src 'self' 'sha256-abc123'\z/
+          expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to match(/\Adefault-src 'self'; script-src 'self' 'sha256-abc123'\z/)
         end
 
         it "overrides individual directives" do
@@ -252,7 +279,7 @@ module SecureHeaders
           end
 
           safari_request = Rack::Request.new(request.env.merge("HTTP_USER_AGENT" => USER_AGENTS[:safari5]))
-          nonce = SecureHeaders.content_security_policy_script_nonce(safari_request)
+          SecureHeaders.content_security_policy_script_nonce(safari_request)
           hash = SecureHeaders.header_hash_for(safari_request)
           expect(hash[ContentSecurityPolicyConfig::HEADER_NAME]).to eq("default-src 'self'; script-src mycdn.com 'unsafe-inline'; style-src 'self'")
         end
@@ -528,6 +555,14 @@ module SecureHeaders
             config.x_content_type_options = "lol"
           end
         end.to raise_error(XContentTypeOptionsConfigError)
+      end
+
+      it "validates your clear site data config upon configuration" do
+        expect do
+          Configuration.default do |config|
+            config.clear_site_data = 1
+          end
+        end.to raise_error(ClearSiteDataConfigError)
       end
 
       it "validates your x_xss config upon configuration" do

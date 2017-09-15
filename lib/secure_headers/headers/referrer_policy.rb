@@ -1,11 +1,14 @@
 module SecureHeaders
   class ReferrerPolicyConfigError < StandardError; end
   class ReferrerPolicy
-    HEADER_NAME = "Referrer-Policy"
+    HEADER_NAME = "Referrer-Policy".freeze
     DEFAULT_VALUE = "origin-when-cross-origin"
     VALID_POLICIES = %w(
       no-referrer
       no-referrer-when-downgrade
+      same-origin
+      strict-origin
+      strict-origin-when-cross-origin
       origin
       origin-when-cross-origin
       unsafe-url

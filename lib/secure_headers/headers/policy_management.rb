@@ -14,6 +14,7 @@ module SecureHeaders
     STAR = "*".freeze
     UNSAFE_INLINE = "'unsafe-inline'".freeze
     UNSAFE_EVAL = "'unsafe-eval'".freeze
+    STRICT_DYNAMIC = "'strict-dynamic'".freeze
 
     # leftover deprecated values that will be in common use upon upgrading.
     DEPRECATED_SOURCE_VALUES = [SELF, NONE, UNSAFE_EVAL, UNSAFE_INLINE, "inline", "eval"].map { |value| value.delete("'") }.freeze
@@ -61,25 +62,19 @@ module SecureHeaders
 
     # All the directives currently under consideration for CSP level 3.
     # https://w3c.github.io/webappsec/specs/CSP2/
+    BLOCK_ALL_MIXED_CONTENT = :block_all_mixed_content
     MANIFEST_SRC = :manifest_src
-    REFLECTED_XSS = :reflected_xss
+    UPGRADE_INSECURE_REQUESTS = :upgrade_insecure_requests
     DIRECTIVES_3_0 = [
       DIRECTIVES_2_0,
-      MANIFEST_SRC,
-      REFLECTED_XSS
-    ].flatten.freeze
-
-    # All the directives that are not currently in a formal spec, but have
-    # been implemented somewhere.
-    BLOCK_ALL_MIXED_CONTENT = :block_all_mixed_content
-    UPGRADE_INSECURE_REQUESTS = :upgrade_insecure_requests
-    DIRECTIVES_DRAFT = [
       BLOCK_ALL_MIXED_CONTENT,
+      MANIFEST_SRC,
       UPGRADE_INSECURE_REQUESTS
-    ].freeze
+    ].flatten.freeze
 
     EDGE_DIRECTIVES = DIRECTIVES_1_0
     SAFARI_DIRECTIVES = DIRECTIVES_1_0
+    SAFARI_10_DIRECTIVES = DIRECTIVES_2_0
 
     FIREFOX_UNSUPPORTED_DIRECTIVES = [
       BLOCK_ALL_MIXED_CONTENT,
@@ -97,34 +92,22 @@ module SecureHeaders
     ].freeze
 
     FIREFOX_DIRECTIVES = (
-      DIRECTIVES_2_0 + DIRECTIVES_DRAFT - FIREFOX_UNSUPPORTED_DIRECTIVES
+      DIRECTIVES_3_0 - FIREFOX_UNSUPPORTED_DIRECTIVES
     ).freeze
 
     FIREFOX_46_DIRECTIVES = (
-      DIRECTIVES_2_0 + DIRECTIVES_DRAFT - FIREFOX_46_UNSUPPORTED_DIRECTIVES - FIREFOX_46_DEPRECATED_DIRECTIVES
+      DIRECTIVES_3_0 - FIREFOX_46_UNSUPPORTED_DIRECTIVES - FIREFOX_46_DEPRECATED_DIRECTIVES
     ).freeze
 
     CHROME_DIRECTIVES = (
-      DIRECTIVES_2_0 + DIRECTIVES_DRAFT
+      DIRECTIVES_3_0
     ).freeze
 
-    ALL_DIRECTIVES = [DIRECTIVES_1_0 + DIRECTIVES_2_0 + DIRECTIVES_3_0 + DIRECTIVES_DRAFT].flatten.uniq.sort
+    ALL_DIRECTIVES = (DIRECTIVES_1_0 + DIRECTIVES_2_0 + DIRECTIVES_3_0).uniq.sort
 
     # Think of default-src and report-uri as the beginning and end respectively,
     # everything else is in between.
     BODY_DIRECTIVES = ALL_DIRECTIVES - [DEFAULT_SRC, REPORT_URI]
-
-    # These are directives that do not inherit the default-src value. This is
-    # useful when calling #combine_policies.
-    NON_FETCH_SOURCES = [
-      BASE_URI,
-      FORM_ACTION,
-      FRAME_ANCESTORS,
-      PLUGIN_TYPES,
-      REPORT_URI
-    ]
-
-    FETCH_SOURCES = ALL_DIRECTIVES - NON_FETCH_SOURCES
 
     VARIATIONS = {
       "Chrome" => CHROME_DIRECTIVES,
@@ -132,6 +115,7 @@ module SecureHeaders
       "Firefox" => FIREFOX_DIRECTIVES,
       "FirefoxTransitional" => FIREFOX_46_DIRECTIVES,
       "Safari" => SAFARI_DIRECTIVES,
+      "SafariTransitional" => SAFARI_10_DIRECTIVES,
       "Edge" => EDGE_DIRECTIVES,
       "Other" => CHROME_DIRECTIVES
     }.freeze
@@ -152,15 +136,30 @@ module SecureHeaders
       MANIFEST_SRC              => :source_list,
       MEDIA_SRC                 => :source_list,
       OBJECT_SRC                => :source_list,
-      PLUGIN_TYPES              => :source_list,
-      REFLECTED_XSS             => :string,
+      PLUGIN_TYPES              => :media_type_list,
       REPORT_URI                => :source_list,
-      SANDBOX                   => :source_list,
+      SANDBOX                   => :sandbox_list,
       SCRIPT_SRC                => :source_list,
       STYLE_SRC                 => :source_list,
       UPGRADE_INSECURE_REQUESTS => :boolean
     }.freeze
 
+    # These are directives that don't have use a source list, and hence do not
+    # inherit the default-src value.
+    NON_SOURCE_LIST_SOURCES = DIRECTIVE_VALUE_TYPES.select do |_, type|
+      type != :source_list
+    end.keys.freeze
+
+    # These are directives that take a source list, but that do not inherit
+    # the default-src value.
+    NON_FETCH_SOURCES = [
+      BASE_URI,
+      FORM_ACTION,
+      FRAME_ANCESTORS,
+      REPORT_URI
+    ]
+
+    FETCH_SOURCES = ALL_DIRECTIVES - NON_FETCH_SOURCES - NON_SOURCE_LIST_SOURCES
 
     STAR_REGEXP = Regexp.new(Regexp.escape(STAR))
     HTTP_SCHEME_REGEX = %r{\Ahttps?://}
@@ -217,7 +216,7 @@ module SecureHeaders
       def nonces_supported?(user_agent)
         user_agent = UserAgent.parse(user_agent) if user_agent.is_a?(String)
         MODERN_BROWSERS.include?(user_agent.browser) ||
-          user_agent.browser == "Safari" && user_agent.version >= CSP::VERSION_10
+          user_agent.browser == "Safari" && (user_agent.version || CSP::FALLBACK_VERSION) >= CSP::VERSION_10
       end
 
       # Public: combine the values from two different configs.
@@ -258,7 +257,7 @@ module SecureHeaders
       # when each hash contains a value for a given key.
       def merge_policy_additions(original, additions)
         original.merge(additions) do |directive, lhs, rhs|
-          if source_list?(directive)
+          if list_directive?(directive)
             (lhs.to_a + rhs.to_a).compact.uniq
           else
             rhs
@@ -266,63 +265,108 @@ module SecureHeaders
         end.reject { |_, value| value.nil? || value == [] } # this mess prevents us from adding empty directives.
       end
 
+      # Returns True if a directive expects a list of values and False otherwise.
+      def list_directive?(directive)
+        source_list?(directive) ||
+          sandbox_list?(directive) ||
+          media_type_list?(directive)
+      end
+
       # For each directive in additions that does not exist in the original config,
       # copy the default-src value to the original config. This modifies the original hash.
       def populate_fetch_source_with_default!(original, additions)
         # in case we would be appending to an empty directive, fill it with the default-src value
-        additions.keys.each do |directive|
-          if !original[directive] && ((source_list?(directive) && FETCH_SOURCES.include?(directive)) || nonce_added?(original, additions))
-            if nonce_added?(original, additions)
-              inferred_directive = directive.to_s.gsub(/_nonce/, "_src").to_sym
-              unless original[inferred_directive] || NON_FETCH_SOURCES.include?(inferred_directive)
-                original[inferred_directive] = original[:default_src]
-              end
-            else
-              original[directive] = original[:default_src]
-            end
+        additions.each_key do |directive|
+          directive = if directive.to_s.end_with?("_nonce")
+            directive.to_s.gsub(/_nonce/, "_src").to_sym
+          else
+            directive
+          end
+          # Don't set a default if directive has an existing value
+          next if original[directive]
+          if FETCH_SOURCES.include?(directive)
+            original[directive] = default_for(directive, original)
           end
         end
       end
 
-      def nonce_added?(original, additions)
-        [:script_nonce, :style_nonce].each do |nonce|
-          if additions[nonce] && !original[nonce]
-            return true
-          end
-        end
+      def default_for(directive, original)
+        return original[FRAME_SRC] if directive == CHILD_SRC && original[FRAME_SRC]
+        return original[CHILD_SRC] if directive == FRAME_SRC && original[CHILD_SRC]
+        original[DEFAULT_SRC]
       end
 
       def source_list?(directive)
         DIRECTIVE_VALUE_TYPES[directive] == :source_list
       end
 
+      def sandbox_list?(directive)
+        DIRECTIVE_VALUE_TYPES[directive] == :sandbox_list
+      end
+
+      def media_type_list?(directive)
+        DIRECTIVE_VALUE_TYPES[directive] == :media_type_list
+      end
+
       # Private: Validates that the configuration has a valid type, or that it is a valid
       # source expression.
-      def validate_directive!(directive, source_expression)
+      def validate_directive!(directive, value)
+        ensure_valid_directive!(directive)
         case ContentSecurityPolicy::DIRECTIVE_VALUE_TYPES[directive]
         when :boolean
-          unless boolean?(source_expression)
-            raise ContentSecurityPolicyConfigError.new("#{directive} must be a boolean value")
+          unless boolean?(value)
+            raise ContentSecurityPolicyConfigError.new("#{directive} must be a boolean. Found #{value.class} value")
           end
-        when :string
-          unless source_expression.is_a?(String)
-            raise ContentSecurityPolicyConfigError.new("#{directive} Must be a string. Found #{config.class}: #{config} value")
-          end
+        when :sandbox_list
+          validate_sandbox_expression!(directive, value)
+        when :media_type_list
+          validate_media_type_expression!(directive, value)
+        when :source_list
+          validate_source_expression!(directive, value)
         else
-          validate_source_expression!(directive, source_expression)
+          raise ContentSecurityPolicyConfigError.new("Unknown directive #{directive}")
+        end
+      end
+
+      # Private: validates that a sandbox token expression:
+      # 1. is an array of strings or optionally `true` (to enable maximal sandboxing)
+      # 2. For arrays, each element is of the form allow-*
+      def validate_sandbox_expression!(directive, sandbox_token_expression)
+        # We support sandbox: true to indicate a maximally secure sandbox.
+        return if boolean?(sandbox_token_expression) && sandbox_token_expression == true
+        ensure_array_of_strings!(directive, sandbox_token_expression)
+        valid = sandbox_token_expression.compact.all? do |v|
+          v.is_a?(String) && v.start_with?("allow-")
+        end
+        if !valid
+          raise ContentSecurityPolicyConfigError.new("#{directive} must be True or an array of zero or more sandbox token strings (ex. allow-forms)")
+        end
+      end
+
+      # Private: validates that a media type expression:
+      # 1. is an array of strings
+      # 2. each element is of the form type/subtype
+      def validate_media_type_expression!(directive, media_type_expression)
+        ensure_array_of_strings!(directive, media_type_expression)
+        valid = media_type_expression.compact.all? do |v|
+          # All media types are of the form: <type from RFC 2045> "/" <subtype from RFC 2045>.
+          v =~ /\A.+\/.+\z/
+        end
+        if !valid
+          raise ContentSecurityPolicyConfigError.new("#{directive} must be an array of valid media types (ex. application/pdf)")
         end
       end
 
       # Private: validates that a source expression:
-      # 1. has a valid name
-      # 2. is an array of strings
-      # 3. does not contain any depreated, now invalid values (inline, eval, self, none)
+      # 1. is an array of strings
+      # 2. does not contain any deprecated, now invalid values (inline, eval, self, none)
       #
       # Does not validate the invididual values of the source expression (e.g.
       # script_src => h*t*t*p: will not raise an exception)
       def validate_source_expression!(directive, source_expression)
-        ensure_valid_directive!(directive)
-        ensure_array_of_strings!(directive, source_expression)
+        if source_expression != OPT_OUT
+          ensure_array_of_strings!(directive, source_expression)
+        end
         ensure_valid_sources!(directive, source_expression)
       end
 
@@ -332,16 +376,16 @@ module SecureHeaders
         end
       end
 
-      def ensure_array_of_strings!(directive, source_expression)
-        unless source_expression.is_a?(Array) && source_expression.compact.all? { |v| v.is_a?(String) }
+      def ensure_array_of_strings!(directive, value)
+        if (!value.is_a?(Array) || !value.compact.all? { |v| v.is_a?(String) })
           raise ContentSecurityPolicyConfigError.new("#{directive} must be an array of strings")
         end
       end
 
       def ensure_valid_sources!(directive, source_expression)
-        source_expression.each do |source_expression|
-          if ContentSecurityPolicy::DEPRECATED_SOURCE_VALUES.include?(source_expression)
-            raise ContentSecurityPolicyConfigError.new("#{directive} contains an invalid keyword source (#{source_expression}). This value must be single quoted.")
+        source_expression.each do |expression|
+          if ContentSecurityPolicy::DEPRECATED_SOURCE_VALUES.include?(expression)
+            raise ContentSecurityPolicyConfigError.new("#{directive} contains an invalid keyword source (#{expression}). This value must be single quoted.")
           end
         end
       end
